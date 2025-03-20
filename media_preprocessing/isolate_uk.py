@@ -25,7 +25,6 @@ def isolate_ireland() -> None:
     uk_mask = reduce(lambda mask_0, mask_1: mask_0 | mask_1, uk_masks)
     uk_mask_clean = erode(dilate(erode(uk_mask), kernel_size=7), kernel_size=5)
 
-
     original_alpha = alpha_channel(uk_and_ireland_image)
     combined_alpha = original_alpha * uk_mask_clean
     uk_mask_image = Image.fromarray(combined_alpha.to(th.uint8).numpy())
@@ -39,7 +38,6 @@ def isolate_ireland() -> None:
     uk_image = uk_image.crop(uk_bbox)
 
     uk_image.convert("RGBA").save("media/uk.png")
-
 
 if __name__ == "__main__":
     isolate_ireland()
