@@ -24,8 +24,6 @@ from manim import (
 
 class OrientedHyperplane(ThreeDScene):
     def construct(self: Self) -> None:
-        self.wait(6)
-
         number_plane = NumberPlane(
             x_range=(-24, 24),
             y_range=(-7, 7),

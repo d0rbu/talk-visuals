@@ -34,7 +34,7 @@ class FocusIreland(MovingCameraScene):
         camera_transform = self.camera.frame.animate.scale(0.5).move_to(ireland_center)
 
         self.play(camera_transform, uk_fade)
-        self.wait(1)
+        self.wait(2)
 
         self.play(ireland_scene_image.animate.set_opacity(0), run_time=0.5)
 
@@ -72,7 +72,8 @@ class FocusIreland(MovingCameraScene):
 
         return x_min, x_max, y_min, y_max
 
-    def get_uk_and_ireland_images(self: Self) -> tuple[Image.Image, Image.Image]:
+    @staticmethod
+    def get_uk_and_ireland_images() -> tuple[Image.Image, Image.Image]:
         uk_and_ireland_image = Image.open("media/uk_and_ireland.png")
         uk_mask_image = Image.open("media/uk_mask.png")
         ireland_mask_image = Image.open("media/ireland_mask.png")
