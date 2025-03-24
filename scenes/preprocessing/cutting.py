@@ -34,3 +34,34 @@ def bisect_angles(points: th.Tensor, angles: th.Tensor) -> th.Tensor:
     biases = th.median(signed_distances, dim=0).values  # shape: (A,)
 
     return biases
+
+
+def count_positive(points: th.Tensor, theta: float, bias: float) -> int:
+    """
+    Count the number of points that lie on the positive side of a hyperplane.
+
+    Args:
+        points (th.Tensor): A set of points in 2D.
+        theta (float): The angle of the hyperplane in radians.
+        bias (float): The bias of the hyperplane.
+
+    Returns:
+        int: The number of points on the positive side of the hyperplane.
+
+    Example:
+        >>> points = th.tensor([[0, 0], [1, 1], [2, 0]])
+        >>> count_positive(points, 0, 0)
+        0
+        >>> count_positive(points, th.pi / 2, 0.5)
+        1
+        >>> count_positive(points, th.pi, 1)
+        2
+    """
+    assert points.ndim == 2 and points.shape[1] == 2, (
+        "Points must be a 2D tensor with shape (N, 2)."
+    )
+
+    normal = th.tensor([th.cos(th.tensor(theta)), th.sin(th.tensor(theta))])
+    signed_distances = points @ normal - bias
+
+    return (signed_distances > 0).sum().item()
