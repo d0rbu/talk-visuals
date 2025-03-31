@@ -83,7 +83,7 @@ class IVTProof(MovingCameraScene):
         self.play(theta.animate.set_value(PI / 24), run_time=0.4)
         self.play(theta.animate.set_value(0), run_time=0.2)
 
-        self.wait(4)
+        self.wait(5)
 
         positive_side = always_redraw(
             lambda: self.draw_positive_side(origin, theta, bias)
@@ -125,7 +125,7 @@ class IVTProof(MovingCameraScene):
 
         self.play(FadeIn(covered_ratio), run_time=0.5)
 
-        self.wait(1.5)
+        self.wait(2)
 
         self.play(bias.animate.set_value(1), run_time=0.75)
 
@@ -137,7 +137,7 @@ class IVTProof(MovingCameraScene):
 
         self.play(FadeOut(covered_ratio))
 
-        self.wait(2)
+        self.wait(3)
 
         generate_graph = ValueTracker(True)
         self.graph_points = []
@@ -168,13 +168,13 @@ class IVTProof(MovingCameraScene):
 
         self.play(FadeIn(Circle(radius=0.05, color=BLUE, fill_opacity=1).move_to(self.camera.frame.get_center()), run_time=1))
 
-        self.wait(6)
+        self.wait(7)
 
         self.play(FadeOut(halfway_line), FadeOut(halfway_line_label), FadeOut(graph))
 
         bias.add_updater(lambda m: self.update_bias_to_bisect(m, solid_pixels_world_space_xy, theta, th.tensor(ireland_center[:2])))
 
-        self.play(theta.animate.set_value(2 * PI), run_time=8)
+        self.play(theta.animate.set_value(2 * PI), run_time=10)
 
         self.wait(2)
 
