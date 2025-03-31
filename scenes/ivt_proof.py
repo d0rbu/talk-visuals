@@ -4,6 +4,7 @@ import numpy as np
 import torch as th
 from focus_ireland import FocusIreland
 from manim import (
+    BLUE,
     DL,
     DR,
     GREEN,
@@ -90,9 +91,9 @@ class IVTProof(MovingCameraScene):
 
         self.play(FadeIn(positive_side), run_time=0.5)
 
-        ireland_pixels = th.tensor(np.asarray(ireland_image)).permute(2, 0, 1)
-        solid_pixels = th.nonzero(ireland_pixels[3] > 200)
-        solid_pixels[0] = ireland_pixels.shape[1] - solid_pixels[0]
+        ireland_pixels = th.tensor(np.asarray(ireland_image)).permute(2, 0, 1)  # C, H, W
+        solid_pixels = th.nonzero(ireland_pixels[3] > 200)  # N, 2
+        solid_pixels[:, 0] = ireland_pixels.shape[1] - solid_pixels[:, 0]
 
         solid_pixels_normalized = (
             solid_pixels / th.tensor(ireland_pixels.shape[1:]).float()
@@ -148,7 +149,7 @@ class IVTProof(MovingCameraScene):
 
         self.wait(2)
 
-        ireland_bisection_bias = bisect_angles(th.tensor(solid_pixels_world_space_xy), th.tensor([theta.get_value()]))
+        ireland_bisection_bias = bisect_angles(solid_pixels_world_space_xy, th.tensor([theta.get_value()]))
 
         self.play(bias.animate.set_value(ireland_bisection_bias - bias_of_ireland_center), run_time=1.5)
 
@@ -163,11 +164,25 @@ class IVTProof(MovingCameraScene):
 
         self.play(FadeIn(halfway_line), FadeIn(halfway_line_label), run_time=0.5)
 
+        self.wait(3)
+
+        self.play(FadeIn(Circle(radius=0.05, color=BLUE, fill_opacity=1).move_to(self.camera.frame.get_center()), run_time=1))
+
         self.wait(6)
 
         self.play(FadeOut(halfway_line), FadeOut(halfway_line_label), FadeOut(graph))
 
-        # TODO: rotate hyperplane around, bisecting the points at each angle
+        bias.add_updater(lambda m: self.update_bias_to_bisect(m, solid_pixels_world_space_xy, theta, th.tensor(ireland_center[:2])))
+
+        self.play(theta.animate.set_value(2 * PI), run_time=8)
+
+        self.wait(2)
+
+    def update_bias_to_bisect(self: Self, bias: ValueTracker, points: th.Tensor, theta: ValueTracker, origin: th.Tensor) -> None:
+        # Update bias using bisect_angles based on the current angle (theta) and solid pixels
+        transformed_points = points - origin
+        new_bias = bisect_angles(transformed_points, th.tensor([theta.get_value()]))
+        bias.set_value(new_bias)
 
     def draw_covered_graph(self: Self, bias: ValueTracker, points: th.Tensor, theta: ValueTracker, bias_of_ireland_center: float, generate_graph: ValueTracker) -> VGroup:
         last_point = None
