@@ -226,7 +226,6 @@ class IVTProof(MovingCameraScene):
 
         return always_redraw(update_graph)
 
-
     def draw_covered_ratio(
         self: Self,
         points: th.Tensor,
