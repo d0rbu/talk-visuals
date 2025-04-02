@@ -31,6 +31,7 @@ from manim import (
     VGroup,
     always_redraw,
     rate_functions,
+    ManimColor,
 )
 from preprocessing.cutting import count_positive, bisect_angles
 
@@ -63,10 +64,7 @@ class HamSandwichProof(MovingCameraScene):
         bias = ValueTracker(0)
         origin = self.camera.frame.get_center()
         hyperplane = always_redraw(lambda: self.draw_hyperplane(origin, theta, bias))
-
-        self.play(FadeIn(hyperplane))
-
-        self.wait(3)
+        angle_indicator = always_redraw(lambda: self.draw_angle_circle(theta))
 
         ireland_pixels = th.tensor(np.asarray(ireland_image)).permute(2, 0, 1)  # C, H, W
         solid_pixels = th.nonzero(ireland_pixels[3] > 200)  # N, 2
@@ -98,7 +96,41 @@ class HamSandwichProof(MovingCameraScene):
             )
         )
 
-        self.play(FadeIn(ireland_scene_image), FadeIn(covered_ratio))
+        self.play(FadeIn(angle_indicator), FadeIn(ireland_scene_image))
+
+        self.wait(2)
+
+        self.play(self.camera.frame.animate.move_to(ORIGIN).scale(2), FadeIn(uk_scene_image))
+
+        self.wait(2)
+
+    def draw_angle_circle(self: Self, theta: ValueTracker) -> VGroup:
+        relative_radius = 0.05
+        radius = relative_radius * self.camera.frame.width
+        bottom_right_offset = 0.5  # relative to the radius
+        offset_vector = UL * (1 + bottom_right_offset) * radius
+        relative_center = self.camera.frame.get_corner(DR) + offset_vector
+
+        relative_stroke_width = 0.5
+        stroke_width = self.camera.frame.width * relative_stroke_width
+
+        circle = Circle(radius=radius, color=WHITE, stroke_width=stroke_width)
+        circle.move_to(relative_center)
+
+        angle_vector = radius * np.array(
+            [np.cos(theta.get_value()), np.sin(theta.get_value()), 0]
+        )
+        line = Line(
+            start=circle.get_center(),
+            end=circle.get_center() + angle_vector,
+            color=WHITE,
+            stroke_width=stroke_width
+        )
+
+        angle_circle = VGroup(circle, line)
+        angle_circle.set_z_index(2)
+
+        return angle_circle
 
     def draw_covered_ratio(
         self: Self,
@@ -160,12 +192,13 @@ class HamSandwichProof(MovingCameraScene):
         arrow = Arrow(
             start=center,
             end=center + self.ARROW_LENGTH * angle_vector,
-            buff=0,
+            buff=0.02,
             color=WHITE,
         )
 
         hyperplane = VGroup(line, arrow)
         hyperplane.set_z_index(2)
+        hyperplane.set_opacity(0.5)
 
         return VGroup(line, arrow)
 
