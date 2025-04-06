@@ -1,7 +1,7 @@
 from typing import Self
 
 import torch as th
-from opensimplex import OpenSimplex
+import opensimplex
 
 
 def hyperspheric_noise(angles: th.Tensor, seed: int = 0) -> float:
@@ -10,7 +10,7 @@ def hyperspheric_noise(angles: th.Tensor, seed: int = 0) -> float:
     Returns the value of the noise at the given angles.
 
     Args:
-        angles (th.Tensor): The angles defining the point on the hypersphere.
+        angles (th.Tensor): The angles defining the point on the hypersphere. This should be [theta, phi, ...] in radians.
         seed (int): The seed for the noise.
 
     Returns:
@@ -34,7 +34,7 @@ def hyperspheric_noise(angles: th.Tensor, seed: int = 0) -> float:
     coords_np = coords.numpy()
 
     # Generate noise using OpenSimplex
-    noise_gen = OpenSimplex(seed)
-    noise_value = noise_gen.noiseN(coords_np)
+    opensimplex.seed(seed)
+    noise_value = opensimplex.noise3(x=coords_np[0], y=coords_np[1], z=coords_np[2])
 
     return noise_value
