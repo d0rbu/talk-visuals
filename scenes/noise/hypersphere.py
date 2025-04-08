@@ -35,6 +35,14 @@ def hyperspheric_noise(angles: th.Tensor, seed: int = 0) -> float:
 
     # Generate noise using OpenSimplex
     opensimplex.seed(seed)
-    noise_value = opensimplex.noise3(x=coords_np[0], y=coords_np[1], z=coords_np[2])
-
-    return noise_value
+    match dims:
+        case 2:
+            return opensimplex.noise2(x=coords_np[0], y=coords_np[1])
+        case 3:
+            return opensimplex.noise3(x=coords_np[0], y=coords_np[1], z=coords_np[2])
+        case 4:
+            return opensimplex.noise4(
+                x=coords_np[0], y=coords_np[1], z=coords_np[2], w=coords_np[3]
+            )
+        case _:
+            raise ValueError("Unsupported number of dimensions for hyperspheric noise.")
