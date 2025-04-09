@@ -79,13 +79,6 @@ class CircleProof(Scene):
         antipodal_points_opacity = ValueTracker(0)
         antipodal_point_labels_opacity = ValueTracker(0)
 
-        circle = always_redraw(
-            lambda: self.draw_antipodal_points_on_circle(point_theta.get_value(), antipodal_points_opacity.get_value(), antipodal_point_labels_opacity.get_value())
-        )
-        self.play(FadeIn(circle))
-
-        self.wait(4)
-
         def get_noise(seed: int, antipode: bool = False) -> float:
             if antipode:
                 coordinates = th.tensor([point_theta.get_value() + PI])
@@ -96,6 +89,20 @@ class CircleProof(Scene):
                 coordinates,
                 seed=seed,
             ) * 0.5 + 0.5
+
+        highlight_close_noises = False
+        def noises_are_close(
+            seed: int,
+        ) -> bool:
+            noise_difference = abs(get_noise(seed) - get_noise(seed, antipode=True))
+            return noise_difference < 0.02 and highlight_close_noises
+
+        circle = always_redraw(
+            lambda: self.draw_antipodal_points_on_circle(point_theta.get_value(), antipodal_points_opacity.get_value(), antipodal_point_labels_opacity.get_value(), close=noises_are_close(temperature_seed))
+        )
+        self.play(FadeIn(circle))
+
+        self.wait(4)
 
         # draw the temperature bars
         temperature_bar = always_redraw(
@@ -143,9 +150,25 @@ class CircleProof(Scene):
             antipodal_point_labels_opacity.animate.set_value(0),
         )
 
-        self.wait(4)
+        self.wait(3)
 
-        self.play(point_theta.animate.set_value(0), run_time=1)
+        self.play(point_theta.animate.set_value(PI), run_time=1)
+
+        highlight_close_noises = True  # now we want to highlight when the noises are close
+
+        point_label = Text(
+            "A",
+            color=GREEN,
+            font_size=24,
+        ).next_to(circle, LEFT)
+        antipodal_point_label = Text(
+            "B",
+            color=RED,
+            font_size=24,
+        ).next_to(circle, RIGHT)
+
+        temperature_label.clear_updaters()
+        antipodal_temperature_label.clear_updaters()
 
         alpha_label = Text(
             "α",
@@ -158,28 +181,28 @@ class CircleProof(Scene):
             font_size=24,
         ).next_to(antipodal_temperature_bar, DOWN)
 
-        self.wait(2)
-
-        temperature_label.clear_updaters()
-        antipodal_temperature_label.clear_updaters()
-
         self.play(
+            FadeIn(point_label),
+            FadeIn(antipodal_point_label),
             Transform(temperature_label, alpha_label),
             Transform(antipodal_temperature_label, beta_label),
         )
 
-        self.wait(1)
+        self.wait(3)
 
+        update_graph = ValueTracker(True)
         self.temperatures = []
         graph_start = np.array([-6.5, -2, 0])
-        graph_scale = np.array([2, 4, 1])
+        graph_scale = np.array([1, 4, 1])
         graph = always_redraw(
             lambda: self.draw_graph(
                 get_noise(temperature_seed),
                 get_noise(temperature_seed, antipode=True),
                 point_theta.get_value(),
+                close=noises_are_close(temperature_seed),
                 start=graph_start,
                 scale=graph_scale,
+                update_graph=update_graph.get_value(),
             )
         )
 
@@ -188,59 +211,93 @@ class CircleProof(Scene):
         start_alpha_location = graph_start + graph_scale * np.array([0, alpha, 0])
         start_beta_location = graph_start + graph_scale * np.array([0, beta, 0])
 
+        a_label_location = graph_start
+        b_label_location = graph_start + graph_scale * PI * RIGHT
+
         self.play(
-            alpha_label.animate.next_to(start_alpha_location, LEFT),
-            beta_label.animate.next_to(start_beta_location, LEFT),
+            temperature_label.animate.next_to(start_alpha_location, LEFT),
+            antipodal_temperature_label.animate.next_to(start_beta_location, LEFT),
+            point_label.animate.next_to(a_label_location, DOWN),
+            antipodal_point_label.animate.next_to(b_label_location, DOWN),
             FadeIn(graph),
-            run_time=1.5,
+            FadeOut(temperature_bar),
+            FadeOut(antipodal_temperature_bar),
+            run_time=3,
         )
 
-        self.wait(1)
+        self.wait(12)
 
         theta_arc = always_redraw(
             lambda: Arc(
                 radius=self.CIRCLE_RADIUS,
-                start_angle=0,
-                angle=point_theta.get_value(),
+                start_angle=PI,
+                angle=point_theta.get_value() - PI,
                 color=GREEN,
-                stroke_width=2,
-                stroke_opacity=0.5,
             )
         )
         theta_antipodal_arc = always_redraw(
             lambda: Arc(
                 radius=self.CIRCLE_RADIUS,
-                start_angle=PI,
-                angle=point_theta.get_value() + PI,
+                start_angle=2 * PI,
+                angle=point_theta.get_value() - PI,
                 color=RED,
-                stroke_width=2,
-                stroke_opacity=0.5,
             )
         )
 
         self.add(theta_arc, theta_antipodal_arc)
         self.play(
-            point_theta.animate.set_value(PI),
-            run_time=8,
+            point_theta.animate.set_value(2 * PI),
+            run_time=12,
         )
+
+        end_alpha_location = graph_start + graph_scale * np.array([0, alpha, 0]) + graph_scale * PI * RIGHT
+        end_beta_location = graph_start + graph_scale * np.array([0, beta, 0]) + graph_scale * PI * RIGHT
+        
+        end_alpha_label = Text(
+            "α",
+            color=RED,
+            font_size=24,
+        ).next_to(end_alpha_location, RIGHT)
+        end_beta_label = Text(
+            "β",
+            color=GREEN,
+            font_size=24,
+        ).next_to(end_beta_location, RIGHT)
+
+        self.play(
+            FadeIn(end_alpha_label),
+            FadeIn(end_beta_label),
+        )
+
+        self.wait(10)
+
+        update_graph.set_value(False)
+
+        self.play(
+            point_theta.animate.set_value(PI + optimal_theta),
+            run_time=2,
+        )
+
+        self.wait(12)
 
     def draw_graph(
         self: Self,
         alpha: float,
         beta: float,
         theta: float,
+        close: bool,
         start: np.ndarray = ORIGIN,
         scale: np.ndarray = np.array([1, 1, 1]),
+        update_graph: bool = True,
     ) -> VGroup:
         graph = VGroup()
 
         # draw the x-axis
         x_axis = Line(
             start,
-            start + scale * RIGHT,
+            start + scale * RIGHT * PI,
             color=WHITE,
-            stroke_width=2,
-            stroke_opacity=0.5,
+            stroke_width=4,
         )
         graph.add(x_axis)
         # draw the y-axis
@@ -248,35 +305,35 @@ class CircleProof(Scene):
             start,
             start + scale * UP,
             color=WHITE,
-            stroke_width=2,
-            stroke_opacity=0.5,
+            stroke_width=4,
         )
         graph.add(y_axis)
         
         # add to the lines, if needed
-        last_point = self.temperatures[-1] if len(self.temperatures) > 0 else None
-        if last_point is None:
-            self.temperatures.append((theta, alpha, beta))
-        else:
-            last_theta, last_a_temperature, last_b_temperature = last_point
-            # only append if the point is different
-            if last_theta != theta:
+        if update_graph:
+            last_point = self.temperatures[-1] if len(self.temperatures) > 0 else None
+            if last_point is None:
                 self.temperatures.append((theta, alpha, beta))
             else:
-                self.temperatures[-1] = (theta, alpha, beta)
+                last_theta = last_point[0]
+                # only append if the point is different
+                if last_theta != theta:
+                    self.temperatures.append((theta, alpha, beta))
+                else:
+                    self.temperatures[-1] = (theta, alpha, beta)
 
         a_lines = VGroup()
         b_lines = VGroup()
         # draw the lines
-        for (old_theta, old_a_temperature, old_b_temperature), (theta, a_temperature, b_temperature) in zip(self.temperatures[:-1], self.temperatures[1:]):
+        for (old_theta, old_a_temperature, old_b_temperature), (new_theta, new_a_temperature, new_b_temperature) in zip(self.temperatures[:-1], self.temperatures[1:]):
             # calculate the position of the point
-            a_point = np.array([theta, a_temperature, 0])
-            b_point = np.array([theta, b_temperature, 0])
+            a_point = np.array([new_theta - PI, new_a_temperature, 0])
+            b_point = np.array([new_theta - PI, new_b_temperature, 0])
             a_point_location = start + scale * a_point
             b_point_location = start + scale * b_point
 
-            old_a_point = np.array([old_theta, old_a_temperature, 0])
-            old_b_point = np.array([old_theta, old_b_temperature, 0])
+            old_a_point = np.array([old_theta - PI, old_a_temperature, 0])
+            old_b_point = np.array([old_theta - PI, old_b_temperature, 0])
             old_a_point_location = start + scale * old_a_point
             old_b_point_location = start + scale * old_b_point
 
@@ -285,21 +342,41 @@ class CircleProof(Scene):
                 old_a_point_location,
                 a_point_location,
                 color=GREEN,
-                stroke_width=2,
-                stroke_opacity=0.5,
+                stroke_width=4,
             )
             b_line = Line(
                 old_b_point_location,
                 b_point_location,
                 color=RED,
-                stroke_width=2,
-                stroke_opacity=0.5,
+                stroke_width=4,
             )
             a_lines.add(a_line)
             b_lines.add(b_line)
         
+        # draw the point
+        a_point = np.array([theta - PI, alpha, 0])
+        b_point = np.array([theta - PI, beta, 0])
+        a_point_location = start + scale * a_point
+        b_point_location = start + scale * b_point
+        a_point = Circle(radius=0.04, color=GREEN, fill_color=GREEN)
+        a_point.move_to(a_point_location)
+        a_point.set_opacity(1)
+        a_point.set_z_index(1)
+        b_point = Circle(radius=0.04, color=RED, fill_color=RED)
+        b_point.move_to(b_point_location)
+        b_point.set_opacity(1)
+        b_point.set_z_index(1)
+
+        if close:
+            a_point.set_color(YELLOW)
+            b_point.set_color(YELLOW)
+            a_point.set_fill(YELLOW)
+            b_point.set_fill(YELLOW)
+
         graph.add(a_lines)
         graph.add(b_lines)
+        graph.add(a_point)
+        graph.add(b_point)
 
         return graph
 
@@ -308,6 +385,7 @@ class CircleProof(Scene):
         theta: float,
         antipodal_points_opacity: float,
         antipodal_point_labels_opacity: float,
+        close: bool = False,
     ) -> VGroup:
         circle = Circle(radius=self.CIRCLE_RADIUS, color=BLUE)
 
@@ -340,6 +418,12 @@ class CircleProof(Scene):
         ).next_to(antipodal_point, DOWN, buff=0.1)
         antipodal_point_label.set_opacity(antipodal_point_labels_opacity)
         antipodal_point_label.set_z_index(2)
+
+        if close:
+            point.set_color(YELLOW)
+            antipodal_point.set_color(YELLOW)
+            point.set_fill(YELLOW)
+            antipodal_point.set_fill(YELLOW)
 
         return VGroup(
             circle,
