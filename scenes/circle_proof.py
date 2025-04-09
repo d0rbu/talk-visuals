@@ -1,10 +1,8 @@
 from typing import Self
-from itertools import product
 
 from tqdm import tqdm
 import numpy as np
 import torch as th
-from mobjects.imagemobject import ImageMobject
 from manim import (
     BLUE,
     BLUE_A,
@@ -34,6 +32,8 @@ from manim import (
     FadeIn,
     FadeOut,
     Sphere,
+    Line,
+    Arc,
     ValueTracker,
     Rectangle,
     VGroup,
@@ -113,16 +113,20 @@ class CircleProof(Scene):
             )
         )
 
-        temperature_label = Text(
-            f"{get_noise(temperature_seed):.2f}",
-            color=GREEN,
-            font_size=24,
-        ).next_to(temperature_bar, DOWN)
-        antipodal_temperature_label = Text(
-            f"{get_noise(temperature_seed, antipode=True):.2f}",
-            color=RED,
-            font_size=24,
-        ).next_to(antipodal_temperature_bar, DOWN)
+        temperature_label = always_redraw(
+            lambda: Text(
+                f"{get_noise(temperature_seed):.2f}",
+                color=GREEN,
+                font_size=24,
+            ).next_to(temperature_bar, DOWN)
+        )
+        antipodal_temperature_label = always_redraw(
+            lambda: Text(
+                f"{get_noise(temperature_seed, antipode=True):.2f}",
+                color=RED,
+                font_size=24,
+            ).next_to(antipodal_temperature_bar, DOWN)
+        )
 
         self.play(
             antipodal_points_opacity.animate.set_value(1),
@@ -139,7 +143,9 @@ class CircleProof(Scene):
             antipodal_point_labels_opacity.animate.set_value(0),
         )
 
-        self.wait(3)
+        self.wait(4)
+
+        self.play(point_theta.animate.set_value(0), run_time=1)
 
         alpha_label = Text(
             "α",
@@ -152,16 +158,150 @@ class CircleProof(Scene):
             font_size=24,
         ).next_to(antipodal_temperature_bar, DOWN)
 
+        self.wait(2)
+
+        temperature_label.clear_updaters()
+        antipodal_temperature_label.clear_updaters()
+
         self.play(
             Transform(temperature_label, alpha_label),
             Transform(antipodal_temperature_label, beta_label),
         )
 
-        self.wait(2)
+        self.wait(1)
 
-        self.play(point_theta.animate.set_value(0), run_time=1)
+        self.temperatures = []
+        graph_start = np.array([-6.5, -2, 0])
+        graph_scale = np.array([2, 4, 1])
+        graph = always_redraw(
+            lambda: self.draw_graph(
+                get_noise(temperature_seed),
+                get_noise(temperature_seed, antipode=True),
+                point_theta.get_value(),
+                start=graph_start,
+                scale=graph_scale,
+            )
+        )
 
-        self.wait(4)
+        alpha = get_noise(temperature_seed)
+        beta = get_noise(temperature_seed, antipode=True)
+        start_alpha_location = graph_start + graph_scale * np.array([0, alpha, 0])
+        start_beta_location = graph_start + graph_scale * np.array([0, beta, 0])
+
+        self.play(
+            alpha_label.animate.next_to(start_alpha_location, LEFT),
+            beta_label.animate.next_to(start_beta_location, LEFT),
+            FadeIn(graph),
+            run_time=1.5,
+        )
+
+        self.wait(1)
+
+        theta_arc = always_redraw(
+            lambda: Arc(
+                radius=self.CIRCLE_RADIUS,
+                start_angle=0,
+                angle=point_theta.get_value(),
+                color=GREEN,
+                stroke_width=2,
+                stroke_opacity=0.5,
+            )
+        )
+        theta_antipodal_arc = always_redraw(
+            lambda: Arc(
+                radius=self.CIRCLE_RADIUS,
+                start_angle=PI,
+                angle=point_theta.get_value() + PI,
+                color=RED,
+                stroke_width=2,
+                stroke_opacity=0.5,
+            )
+        )
+
+        self.add(theta_arc, theta_antipodal_arc)
+        self.play(
+            point_theta.animate.set_value(PI),
+            run_time=8,
+        )
+
+    def draw_graph(
+        self: Self,
+        alpha: float,
+        beta: float,
+        theta: float,
+        start: np.ndarray = ORIGIN,
+        scale: np.ndarray = np.array([1, 1, 1]),
+    ) -> VGroup:
+        graph = VGroup()
+
+        # draw the x-axis
+        x_axis = Line(
+            start,
+            start + scale * RIGHT,
+            color=WHITE,
+            stroke_width=2,
+            stroke_opacity=0.5,
+        )
+        graph.add(x_axis)
+        # draw the y-axis
+        y_axis = Line(
+            start,
+            start + scale * UP,
+            color=WHITE,
+            stroke_width=2,
+            stroke_opacity=0.5,
+        )
+        graph.add(y_axis)
+        
+        # add to the lines, if needed
+        last_point = self.temperatures[-1] if len(self.temperatures) > 0 else None
+        if last_point is None:
+            self.temperatures.append((theta, alpha, beta))
+        else:
+            last_theta, last_a_temperature, last_b_temperature = last_point
+            # only append if the point is different
+            if last_theta != theta:
+                self.temperatures.append((theta, alpha, beta))
+            else:
+                self.temperatures[-1] = (theta, alpha, beta)
+
+        a_lines = VGroup()
+        b_lines = VGroup()
+        # draw the lines
+        for (old_theta, old_a_temperature, old_b_temperature), (theta, a_temperature, b_temperature) in zip(self.temperatures[:-1], self.temperatures[1:]):
+            # calculate the position of the point
+            a_point = np.array([theta, a_temperature, 0])
+            b_point = np.array([theta, b_temperature, 0])
+            a_point_location = start + scale * a_point
+            b_point_location = start + scale * b_point
+
+            old_a_point = np.array([old_theta, old_a_temperature, 0])
+            old_b_point = np.array([old_theta, old_b_temperature, 0])
+            old_a_point_location = start + scale * old_a_point
+            old_b_point_location = start + scale * old_b_point
+
+            # draw the line
+            a_line = Line(
+                old_a_point_location,
+                a_point_location,
+                color=GREEN,
+                stroke_width=2,
+                stroke_opacity=0.5,
+            )
+            b_line = Line(
+                old_b_point_location,
+                b_point_location,
+                color=RED,
+                stroke_width=2,
+                stroke_opacity=0.5,
+            )
+            a_lines.add(a_line)
+            b_lines.add(b_line)
+        
+        graph.add(a_lines)
+        graph.add(b_lines)
+
+        return graph
 
     def draw_antipodal_points_on_circle(
         self: Self,
