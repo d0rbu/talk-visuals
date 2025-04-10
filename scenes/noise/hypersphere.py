@@ -39,7 +39,7 @@ def hyperspheric_noise(angles: th.Tensor, seed: int = 0) -> float:
         case 2:
             return opensimplex.noise2(x=coords_np[0], y=coords_np[1])
         case 3:
-            return opensimplex.noise3(x=coords_np[0], y=coords_np[1], z=coords_np[2])
+            return opensimplex.noise3(x=coords_np[1], y=coords_np[2], z=coords_np[0])
         case 4:
             return opensimplex.noise4(
                 x=coords_np[0], y=coords_np[1], z=coords_np[2], w=coords_np[3]
