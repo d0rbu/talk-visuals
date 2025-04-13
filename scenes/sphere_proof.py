@@ -162,7 +162,7 @@ class SphereProof(ThreeDScene):
 
         # find the closest theta in grid_theta
         closest_theta_index = int(th.argmin(th.abs(grid_theta - theta)).item())
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         optimal_phi_for_this_theta = minimum_difference_phis[closest_theta_index]
         past_optimal_phi = (phi > optimal_phi_for_this_theta).item()
 
