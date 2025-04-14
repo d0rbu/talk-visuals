@@ -77,28 +77,28 @@ class Intro(ThreeDScene):
         # draw the temperature/air pressure bars
         temperature_bar = always_redraw(
             lambda: self.draw_bar(
-                get_noise(temperature_seed),
+                get_noise(temperature_seed).item(),
                 GREEN_A,
                 position=np.array([-4, 2, 0]),
             )
         )
         air_pressure_bar = always_redraw(
             lambda: self.draw_bar(
-                get_noise(air_pressure_seed),
+                get_noise(air_pressure_seed).item(),
                 GREEN_E,
                 position=np.array([3, 2, 0]),
             )
         )
         antipodal_temperature_bar = always_redraw(
             lambda: self.draw_bar(
-                get_noise(temperature_seed, antipode=True),
+                get_noise(temperature_seed, antipode=True).item(),
                 RED_A,
                 position=np.array([-3, 2, 0]),
             )
         )
         antipodal_air_pressure_bar = always_redraw(
             lambda: self.draw_bar(
-                get_noise(air_pressure_seed, antipode=True),
+                get_noise(air_pressure_seed, antipode=True).item(),
                 RED_E,
                 position=np.array([4, 2, 0]),
             )

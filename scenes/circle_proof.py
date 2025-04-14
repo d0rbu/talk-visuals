@@ -94,7 +94,7 @@ class CircleProof(Scene):
         def noises_are_close(
             seed: int,
         ) -> bool:
-            noise_difference = abs(get_noise(seed) - get_noise(seed, antipode=True))
+            noise_difference = abs(get_noise(seed).item() - get_noise(seed, antipode=True).item())
             return noise_difference < 0.02 and highlight_close_noises
 
         circle = always_redraw(
@@ -107,14 +107,14 @@ class CircleProof(Scene):
         # draw the temperature bars
         temperature_bar = always_redraw(
             lambda: self.draw_bar(
-                get_noise(temperature_seed),
+                get_noise(temperature_seed).item(),
                 GREEN,
                 position=np.array([-4, 2, 0]),
             )
         )
         antipodal_temperature_bar = always_redraw(
             lambda: self.draw_bar(
-                get_noise(temperature_seed, antipode=True),
+                get_noise(temperature_seed, antipode=True).item(),
                 RED,
                 position=np.array([4, 2, 0]),
             )
@@ -122,14 +122,14 @@ class CircleProof(Scene):
 
         temperature_label = always_redraw(
             lambda: Text(
-                f"{get_noise(temperature_seed):.2f}",
+                f"{get_noise(temperature_seed).item():.2f}",
                 color=GREEN,
                 font_size=24,
             ).next_to(temperature_bar, DOWN)
         )
         antipodal_temperature_label = always_redraw(
             lambda: Text(
-                f"{get_noise(temperature_seed, antipode=True):.2f}",
+                f"{get_noise(temperature_seed, antipode=True).item():.2f}",
                 color=RED,
                 font_size=24,
             ).next_to(antipodal_temperature_bar, DOWN)
@@ -196,8 +196,8 @@ class CircleProof(Scene):
         graph_scale = np.array([1, 4, 1])
         graph = always_redraw(
             lambda: self.draw_graph(
-                get_noise(temperature_seed),
-                get_noise(temperature_seed, antipode=True),
+                get_noise(temperature_seed).item(),
+                get_noise(temperature_seed, antipode=True).item(),
                 point_theta.get_value(),
                 close=noises_are_close(temperature_seed),
                 start=graph_start,
@@ -206,8 +206,8 @@ class CircleProof(Scene):
             )
         )
 
-        alpha = get_noise(temperature_seed)
-        beta = get_noise(temperature_seed, antipode=True)
+        alpha = get_noise(temperature_seed).item()
+        beta = get_noise(temperature_seed, antipode=True).item()
         start_alpha_location = graph_start + graph_scale * np.array([0, alpha, 0])
         start_beta_location = graph_start + graph_scale * np.array([0, beta, 0])
 
