@@ -49,8 +49,7 @@ from noise.hypersphere import hyperspheric_noise
 
 class SphereProof(ThreeDScene):
     SPHERE_RADIUS = 2
-    TEMPERATURE_SEED = 0
-    AIR_PRESSURE_SEED = 1
+
 
     def construct(self: Self) -> None:
         self.set_camera_orientation(phi=90 * DEGREES, theta=10 * DEGREES)
@@ -58,55 +57,19 @@ class SphereProof(ThreeDScene):
         point_theta = ValueTracker(0)
         point_phi = ValueTracker(0)
 
-        # calculate the noise values on a grid
-        grid_theta_size = 80
-        grid_phi_size = 40
+        theta_resolution = 80
 
-        grid_theta = th.linspace(0, 2 * PI, grid_theta_size + 1)[:-1]
-        grid_phi = th.linspace(0, PI, grid_phi_size + 1)[:-1]
-        mesh_grid_theta, mesh_grid_phi = th.meshgrid(grid_theta, grid_phi)
-        grid = th.stack((mesh_grid_phi, mesh_grid_theta), dim=-1)  # (grid_theta_size, grid_phi_size, 2)
-        noise_grid = th.empty_like(grid)
+        # Generate realistic-looking continuous noise (just a random walk lol)
+        min_diff_phis = th.cumsum(th.normal(mean=0.0, std=0.05, size=(theta_resolution // 2,), generator=th.Generator().manual_seed(42)), dim=0)
+        initial_min_diff_phi = min_diff_phis[0].clone()
+        final_min_diff_phi = min_diff_phis[-1].clone()
+        min_diff_phis += th.linspace(final_min_diff_phi, initial_min_diff_phi, theta_resolution // 2)
+        min_diff_phis -= initial_min_diff_phi
+        min_diff_phis -= final_min_diff_phi
+        min_diff_phis += PI / 2
+        min_diff_phis = th.cat([min_diff_phis, PI - min_diff_phis])  # enforce symmetry
 
-        for i, j in tqdm(product(range(grid_theta_size), range(grid_phi_size)), desc="Calculating noise values", total=grid_theta_size * grid_phi_size, leave=False):
-            phi, theta = grid[i, j]
-            coordinates = th.tensor([phi, theta])
-
-            temperature_noise = hyperspheric_noise(
-                coordinates, seed=self.TEMPERATURE_SEED
-            ) * 0.5 + 0.5
-            air_pressure_noise = hyperspheric_noise(
-                coordinates, seed=self.AIR_PRESSURE_SEED
-            ) * 0.5 + 0.5
-
-            noise_grid[i, j] = th.tensor([temperature_noise, air_pressure_noise])
-
-        # find the most similar noise values on antipodal points
-        # first we pair up opposite thetas
-        antipodal_grid = noise_grid.reshape(
-            2, -1, grid_phi_size, 2
-        )  # 2, grid_theta_size // 2, grid_phi_size, 2
-        # now we invert the phis
-        antipodal_grid[1] = th.flip(antipodal_grid[1], [1])
-
-        # now we take the difference
-        difference_grid = th.abs(antipodal_grid[0] - antipodal_grid[1]).sum(dim=-1)
-        minimum_difference_indices_flattened = th.argmin(difference_grid)
-        minimum_difference_indices = th.unravel_index(
-            minimum_difference_indices_flattened, difference_grid.shape
-        )
-        minimum_difference_location = grid[minimum_difference_indices]
-
-        optimal_theta, optimal_phi = minimum_difference_location
-
-        # now we want to find the temperature-optimal phi for each value of theta
-        temperature_difference_grid = th.abs(antipodal_grid[0, :, :, 0] - antipodal_grid[1, :, :, 0])  # grid_theta_size // 2, grid_phi_size
-        minimum_difference_phi_indices = th.argmin(temperature_difference_grid, dim=1)  # grid_theta_size // 2
-        minimum_difference_phis = grid_phi[minimum_difference_phi_indices]  # grid_theta_size // 2
-        minimum_difference_phis = th.cat([
-            minimum_difference_phis,
-            PI - minimum_difference_phis,
-        ], dim=0)  # grid_theta_size
+        grid_theta = th.linspace(0, 2 * PI, theta_resolution + 1)[:-1]
 
         antipodal_points_opacity = ValueTracker(1)
         update_points_with_equivalent_temperatures = ValueTracker(True)
@@ -118,18 +81,69 @@ class SphereProof(ThreeDScene):
                 point_phi.get_value(),
                 antipodal_points_opacity.get_value(),
                 bool(update_points_with_equivalent_temperatures.get_value()),
-                minimum_difference_phis=minimum_difference_phis,
+                minimum_difference_phis=min_diff_phis,
                 grid_theta=grid_theta,
             )
         )
         self.play(FadeIn(antipodal_points))
-        
-        self.wait(2)
+
+        self.wait(4)
 
         self.play(point_phi.animate.set_value(PI), run_time=4)
 
-        self.wait(5)
+        self.wait(8)
 
+        for i, theta in enumerate(grid_theta[1:grid_theta.shape[0] // 2]):
+            point_theta.set_value(theta)
+            point_phi.set_value(0)
+
+            duration = 3 / (i + 1)
+
+            self.play(
+                point_phi.animate.set_value(PI),
+                run_time=duration,
+            )
+
+        self.wait(2)
+
+        # Draw and fade in the looped lines while fading out the antipodal points
+        lines = VGroup()
+        sorted_theta_indices = sorted(self.points_with_equivalent_temperatures.keys())
+        n = len(sorted_theta_indices)
+
+        for i in range(n):
+            theta_i = sorted_theta_indices[i]
+
+            theta_next = sorted_theta_indices[(i + 1) % n]
+            point_i = self.points_with_equivalent_temperatures[theta_i][0]
+
+            if i == n - 1:
+                point_next = self.points_with_equivalent_temperatures[theta_next][1]
+            else:
+                point_next = self.points_with_equivalent_temperatures[theta_next][0]
+            
+            lines.add(Line(point_i.get_center(), point_next.get_center(), color=YELLOW))
+
+        for i in range(n):
+            theta_i = sorted_theta_indices[i]
+            theta_next = sorted_theta_indices[(i + 1) % n]
+            point_i = self.points_with_equivalent_temperatures[theta_i][1]
+            
+            if i == n - 1:
+                point_next = self.points_with_equivalent_temperatures[theta_next][0]
+            else:
+                point_next = self.points_with_equivalent_temperatures[theta_next][1]
+            
+            lines.add(Line(point_i.get_center(), point_next.get_center(), color=YELLOW))
+
+        self.play(FadeIn(lines))
+
+        self.wait(6)
+
+        self.move_camera(phi=0 * DEGREES, theta=10 * DEGREES, run_time=3)
+        self.play(FadeOut(antipodal_points))
+        
+        self.wait(8)
 
     def draw_points_on_surface(
         self: Self,
@@ -140,9 +154,6 @@ class SphereProof(ThreeDScene):
         minimum_difference_phis: th.Tensor,
         grid_theta: th.Tensor,
     ) -> VGroup:
-        """
-        Draw a point on the surface of the sphere using spherical coordinates as well as its antipodal point.
-        """
 
         phi, theta = th.tensor(phi), th.tensor(theta)
 
@@ -160,25 +171,26 @@ class SphereProof(ThreeDScene):
         point.set_opacity(antipodal_points_opacity)
         antipodal_point.set_opacity(antipodal_points_opacity)
 
-        # find the closest theta in grid_theta
         closest_theta_index = int(th.argmin(th.abs(grid_theta - theta)).item())
-        # import pdb; pdb.set_trace()
         optimal_phi_for_this_theta = minimum_difference_phis[closest_theta_index]
         past_optimal_phi = (phi > optimal_phi_for_this_theta).item()
 
         if update_points_with_equivalent_temperatures:
             if past_optimal_phi and closest_theta_index not in self.points_with_equivalent_temperatures:
-                point_marker = Sphere(radius=0.1, fill_opacity=1, resolution=(5, 5)).move_to(np.array([x, y, z]))
-                antipodal_point_marker = Sphere(radius=0.1, fill_opacity=1, resolution=(5, 5)).move_to(np.array([-x, -y, -z]))
+                optimal_x = self.SPHERE_RADIUS * th.sin(optimal_phi_for_this_theta) * th.cos(grid_theta[closest_theta_index])
+                optimal_y = self.SPHERE_RADIUS * th.sin(optimal_phi_for_this_theta) * th.sin(grid_theta[closest_theta_index])
+                optimal_z = self.SPHERE_RADIUS * th.cos(optimal_phi_for_this_theta)
+
+                point_marker = Sphere(radius=0.1, fill_opacity=1, resolution=(5, 5)).move_to(np.array([optimal_x, optimal_y, optimal_z]))
+                antipodal_point_marker = Sphere(radius=0.1, fill_opacity=1, resolution=(5, 5)).move_to(np.array([-optimal_x, -optimal_y, -optimal_z]))
                 point_marker.set_color(YELLOW)
                 antipodal_point_marker.set_color(YELLOW)
 
                 self.points_with_equivalent_temperatures[closest_theta_index] = (point_marker, antipodal_point_marker)
-            
+
             all_highlighted_points = self.points_with_equivalent_temperatures.values()
-            # flatten
             all_highlighted_points = [point for pair in all_highlighted_points for point in pair]
 
             return VGroup(earth, point, antipodal_point, *all_highlighted_points)
-        
+
         return VGroup(earth, point, antipodal_point)
